@@ -236,67 +236,139 @@
 
 # 06. 基础 - 安装 Docker（结合 Ubuntu 系统调整）
 
-> 说明：原视频基于 CentOS 系统（使用 `yum` 包管理器）。由于你的系统为 Ubuntu（`6.8.0-124-generic`），以下命令已适配为 `apt` 包管理器。
+> 说明：原视频教程基于 CentOS 系统（使用 `yum` 包管理器）。由于实际学习环境为 Ubuntu（`6.8.0-124-generic`），以下命令均已适配为 `apt` 包管理器，并补充了实际操作中遇到的排错与验证步骤。
+
+![image-20261001113459195](assets/image-20261001113459195.png)
 
 ## 一、参考官方文档与准备工作
 - 安装 Docker 前可访问 docker.com 开发者文档，选择 **Docker Engine Install**。
+- 官方文档地址：[https://docs.docker.com/](https://docs.docker.com/)
+- 根据当前系统版本（Ubuntu）获取对应的安装步骤和命令。
 
-  [https://docs.docker.com/]: https://docs.docker.com/
+## 二、环境检查（安装前建议执行）
+在直接执行添加 GPG 密钥和配置 apt 源之前，先检查系统是否已有相关配置，避免重复添加或产生冲突。
 
-- 根据系统版本（此处为 Ubuntu）获取对应的安装步骤和命令。
+```bash
+# 1. 查看 Docker 是否已安装
+docker --version
+dpkg -l | grep docker
 
-## 二、第一步：移除旧版本 Docker
-- 执行命令移除系统中可能存在的旧版本 Docker。
-- 若是新系统可跳过此步，但建议执行以确保环境干净。
+# 2. 查询 GPG 密钥是否存在（现代 Docker 格式）
+ls -l /etc/apt/keyrings/docker.gpg
+# 查询旧格式密钥
+ls -l /usr/share/keyrings/docker-archive-keyring.gpg
+
+# 3. 查询 APT 源是否已配置
+ls -l /etc/apt/sources.list.d/docker.list
+cat /etc/apt/sources.list.d/docker.list
+
+# 4. 查询 apt 是否识别到 docker-ce 软件包
+apt-cache policy docker-ce
+```
+
+- 如果以上文件不存在，说明系统干净，按下方步骤操作即可。
+- 如果部分存在，建议先清理旧配置再重新执行。
+
+## 三、第一步：移除旧版本 Docker
+
+执行命令移除系统中可能存在的旧版本 Docker。若是新系统可跳过此步，但建议执行以确保环境干净。
+
 ```bash
 # 移除旧版本docker (Ubuntu)
 sudo apt remove docker docker-engine docker.io containerd runc
 ```
 
-## 三、第二步：配置 Docker 下载源
-- **更新系统并安装依赖工具**：安装 `ca-certificates`、`curl`、`gnupg` 等工具，用于配置 Docker 的下载地址源。
-- **配置阿里云镜像源**：由于直接连接 Docker 官网下载速度较慢，需将下载源配置为阿里云地址。执行以下命令让系统知道从何处下载 Docker。
+## 四、第二步：配置 Docker 下载源（阿里云镜像）
+
+- **更新系统并安装依赖工具**：安装 `ca-certificates`、`curl`、`gnupg` 等工具。
+- **添加官方 GPG 密钥**：验证软件包的真实性。
+- **配置阿里云镜像源**：由于直接连接 Docker 官网下载速度较慢，需将下载源配置为阿里云地址。
+
 ```bash
-# 更新apt包索引并安装依赖
+# 1. 更新apt包索引并安装依赖
 sudo apt-get update
 sudo apt-get install -y ca-certificates curl gnupg
 
-# 添加Docker官方GPG密钥
+# 2. 添加Docker官方GPG密钥
 sudo install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 sudo chmod a+r /etc/apt/keyrings/docker.gpg
 
-# 设置稳定版仓库 (使用阿里云镜像加速源)
+# 3. 设置稳定版仓库 (使用阿里云镜像加速源)
 echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://mirrors.aliyun.com/docker-ce/linux/ubuntu \
   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 ```
 
-## 四、第三步：安装 Docker 引擎
-- **安装内容说明**：安装包含 **Docker CE**（社区版引擎）、**Docker CLI**（命令行程序，用于向后台进程发送命令）、**containerd.io**（运行时容器环境）以及构建镜像所需的插件工具和 **Docker Compose**。
-- **执行安装命令**：复制官方提供的安装命令并执行。
+
+
+**验证源配置是否成功：**
+
+```bash
+# 查看 docker.list 文件是否存在及内容
+ls -l /etc/apt/sources.list.d/docker.list
+cat /etc/apt/sources.list.d/docker.list
+```
+
+
+
+如果输出类似 `deb [arch=amd64 signed-by=...] https://mirrors.aliyun.com/docker-ce/linux/ubuntu noble stable`，说明源配置成功。
+
+## 五、第三步：安装 Docker 引擎
+
+- **安装内容说明**：包含 **Docker CE**（社区版引擎）、**Docker CLI**（命令行程序）、**[containerd.io](https://containerd.io/)**（运行时容器环境）以及构建镜像所需的插件工具和 **Docker Compose**。
+
 ```bash
 # 更新apt源并安装最新docker
 sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
-## 五、启动 Docker 服务
-- **立即启动**：输入以下命令启动 Docker 服务。当前用户为 root，可直接执行。
-- **验证启动状态**：运行 `docker ps` 查看正在运行的应用，若无报错且列表为空，说明启动成功。
-- **设置开机自启**：仅执行 start 命令只在当前会话有效，关机后需重新手动启动。执行以下命令确保 Docker 在系统开机时自动启动：
+> 提示：安装过程会下载约 101 MB 的文件，耐心等待即可。Ubuntu 安装后默认不会自动启动服务，需进行下一步。
+
+## 六、第四步：启动 Docker 服务与配置权限
+
+- **立即启动**：启动 Docker 服务。
+- **设置开机自启**：确保 Docker 在系统开机时自动启动。
+- **解决权限问题**：默认情况下，普通用户执行 `docker ps` 会报 `permission denied` 错误，需将用户加入 docker 组。
+
 ```bash
-# 启动& 开机启动docker； enable + start 二合一
+# 1. 启动 Docker 并设置开机自启（enable + start 二合一）
 sudo systemctl enable docker --now
+
+# 2. 将当前用户加入 docker 组
+sudo usermod -aG docker $USER
+
+# 3. 使组权限生效（二选一）
+newgrp docker
+# 或者退出 SSH 重新连接服务器
 ```
 
-## 六、配置 Docker 镜像加速
-- **配置原因**：Docker 默认从 Docker Hub 官网下载镜像，连接国外服务器速度较慢，因此需配置国内镜像源地址进行加速。
-- **配置原理**：修改 Docker 后台进程的配置文件 `/etc/docker/daemon.json`，在 JSON 文件中配置 `registry-mirrors` 选项，指向国内的镜像源地址。
-- **执行配置命令**：
+
+
+**验证权限与运行状态：**
+
 ```bash
-# 配置加速
+# 查看 Docker 版本
+docker --version
+
+# 查看 Docker 服务运行状态（看到 active (running) 即为正常）
+sudo systemctl status docker
+
+# 查看正在运行的容器（现在无需 sudo，列表为空但没报错就说明成功）
+docker ps
+```
+
+
+
+## 七、第五步：配置 Docker 镜像加速
+
+- **配置原因**：Docker 默认从 Docker Hub 官网下载镜像，连接国外服务器速度较慢，需配置国内镜像源地址加速。
+- **配置原理**：修改 Docker 后台进程的配置文件 `/etc/docker/daemon.json`，配置 `registry-mirrors` 选项。
+
+```bash
+# 创建配置目录并写入加速配置
 sudo mkdir -p /etc/docker
 sudo tee /etc/docker/daemon.json <<-'EOF'
 {
@@ -305,12 +377,35 @@ sudo tee /etc/docker/daemon.json <<-'EOF'
 EOF
 ```
 
-## 七、重启服务与最终验证
+
+
+## 八、第六步：重启服务与最终验证
+
 - **重启 Docker**：修改配置文件后，需重启 Docker 后台进程及服务以使配置生效。
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl restart docker
 ```
-- **最终验证**：再次运行 `docker ps` 等命令，若能正常执行，则表明 Docker 安装及加速配置全部成功。
 
+
+
+**最终验证：**
+
+```bash
+# 查看 Docker 系统信息，检查 Registry Mirrors 是否生效
+docker info
+
+# 运行一个测试容器（验证拉取和运行是否正常）
+docker run hello-world
 ```
+
+![image-20261001125803798](assets/image-20261001125803798.png)
+
+如果 `docker info` 中 `Registry Mirrors` 显示了配置的地址，且 `docker run hello-world` 能成功输出欢迎信息，则表明 Docker 安装及加速配置全部成功。
+
+## 九、本节踩坑总结
+
+- **系统差异**：视频教程为 CentOS，实际为 Ubuntu，需熟练使用 `apt` 替代 `yum`。
+- **权限报错**：普通用户执行 Docker 命令报 `permission denied`，必须执行 `sudo usermod -aG docker $USER` 并重新登录。
+- **服务未启动**：Ubuntu 安装后需 `systemctl enable docker --now` 启动并配置自启。
